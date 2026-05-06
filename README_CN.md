@@ -199,3 +199,7 @@ PROMPT_FRAME_PORT=3000 docker compose up -d --build
 ```bash
 docker compose down
 ```
+
+## 贡献
+
+PR 大小限制、测试报告要求和必需的 GitHub 检查见 [CONTRIBUTING.md](CONTRIBUTING.md)。

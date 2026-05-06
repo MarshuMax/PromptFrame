@@ -199,3 +199,7 @@ To stop:
 ```bash
 docker compose down
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for PR size limits, required test reports, and required GitHub checks.
