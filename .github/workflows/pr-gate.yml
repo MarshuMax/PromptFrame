@@ -1,0 +1,187 @@
+name: PR policy
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - opened
+      - edited
+      - reopened
+      - ready_for_review
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate PR policy
+    runs-on: ubuntu-latest
+    env:
+      MAX_CHANGED_FILES: "25"
+      MAX_ADDITIONS: "1200"
+      MAX_DELETIONS: "1000"
+      MAX_TOTAL_CHANGES: "1500"
+      MAX_SINGLE_FILE_CHANGES: "700"
+    steps:
+      - name: Check PR metadata and size
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setFailed("This workflow must run on a pull_request_target event.");
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const limits = {
+              files: Number(process.env.MAX_CHANGED_FILES),
+              additions: Number(process.env.MAX_ADDITIONS),
+              deletions: Number(process.env.MAX_DELETIONS),
+              total: Number(process.env.MAX_TOTAL_CHANGES),
+              singleFile: Number(process.env.MAX_SINGLE_FILE_CHANGES),
+            };
+
+            const totals = files.reduce((acc, file) => {
+              acc.additions += file.additions || 0;
+              acc.deletions += file.deletions || 0;
+              acc.changes += file.changes || ((file.additions || 0) + (file.deletions || 0));
+              return acc;
+            }, { additions: 0, deletions: 0, changes: 0 });
+
+            const errors = [];
+            const body = pr.body || "";
+            const botAuthors = new Set(["dependabot[bot]", "renovate[bot]"]);
+            const isBot = botAuthors.has((pr.user?.login || "").toLowerCase());
+
+            function section(title) {
+              const lines = body.replace(/\r\n/g, "\n").split("\n");
+              const heading = new RegExp(`^##\\s+${title}\\s*$`, "i");
+              const start = lines.findIndex((line) => heading.test(line.trim()));
+              if (start === -1) {
+                return "";
+              }
+              const next = lines.findIndex((line, index) => index > start && /^##\s+/.test(line));
+              return lines.slice(start + 1, next === -1 ? lines.length : next).join("\n");
+            }
+
+            function meaningful(text) {
+              const cleaned = text
+                .replace(/<!--[\s\S]*?-->/g, "")
+                .replace(/^\s*-\s*$/gm, "")
+                .trim();
+              if (cleaned.length < 12) {
+                return false;
+              }
+              return !/^(todo|tbd|n\/a|none)$/i.test(cleaned.replace(/\s+/g, " "));
+            }
+
+            if (!isBot) {
+              const summary = section("Summary");
+              const scope = section("Scope");
+              const testReport = section("Test report");
+              const screenshots = section("Screenshots");
+              const checkedScopes = scope.match(/^\s*-\s+\[[xX]\]\s+/gm) || [];
+
+              if (!meaningful(summary)) {
+                errors.push("Fill in the `Summary` section with a concrete description of the change.");
+              }
+              if (checkedScopes.length !== 1) {
+                errors.push("Choose exactly one primary item in the `Scope` section. Split unrelated work into separate PRs.");
+              }
+              if (!meaningful(testReport)) {
+                errors.push("Fill in the `Test report` section with exact commands and results.");
+              }
+
+              const runtimeFiles = files
+                .map((file) => file.filename)
+                .filter((filename) => /^(src|server|public)\//.test(filename) || [
+                  "Dockerfile",
+                  "docker-compose.yml",
+                  "index.html",
+                  "package-lock.json",
+                  "package.json",
+                  "tsconfig.json",
+                  "vite.config.ts",
+                ].includes(filename));
+              const cleanTestReport = testReport
+                .replace(/<!--[\s\S]*?-->/g, "")
+                .trim()
+                .replace(/\s+/g, " ");
+              if (/^(not run|not tested|n\/a|none)\b/i.test(cleanTestReport) && runtimeFiles.length > 0) {
+                errors.push("Runtime changes must include a real test report, not `not run` or `N/A`.");
+              }
+
+              const uiFiles = files
+                .map((file) => file.filename)
+                .filter((filename) => /^src\/.*\.(tsx|css)$/.test(filename)
+                  || /^public\//.test(filename)
+                  || filename === "index.html");
+              const cleanScreenshots = screenshots
+                .replace(/<!--[\s\S]*?-->/g, "")
+                .trim()
+                .replace(/\s+/g, " ");
+              if (uiFiles.length > 0 && (!meaningful(screenshots) || /^(n\/a|none)\b/i.test(cleanScreenshots))) {
+                errors.push("UI changes must include screenshots or before/after evidence in the `Screenshots` section.");
+              }
+            }
+
+            const forbiddenFiles = files
+              .map((file) => file.filename)
+              .filter((filename) => /^(dist|node_modules|coverage|\.data|\.nyc_output)\//.test(filename)
+                || /(^|\/)\.DS_Store$/.test(filename)
+                || /\.tsbuildinfo$/.test(filename));
+
+            if (forbiddenFiles.length > 0) {
+              errors.push(`Do not commit generated or runtime files: ${forbiddenFiles.slice(0, 10).join(", ")}${forbiddenFiles.length > 10 ? "..." : ""}`);
+            }
+
+            if (files.length > limits.files) {
+              errors.push(`Too many files changed: ${files.length}/${limits.files}. Split this into smaller PRs.`);
+            }
+            if (totals.additions > limits.additions) {
+              errors.push(`Too many added lines: +${totals.additions}/+${limits.additions}. Split this into smaller PRs.`);
+            }
+            if (totals.deletions > limits.deletions) {
+              errors.push(`Too many deleted lines: -${totals.deletions}/-${limits.deletions}. Split this into smaller PRs.`);
+            }
+            if (totals.changes > limits.total) {
+              errors.push(`Too many changed lines: ${totals.changes}/${limits.total}. Split this into smaller PRs.`);
+            }
+
+            const largeFiles = files.filter((file) => {
+              const filename = file.filename;
+              const changes = file.changes || ((file.additions || 0) + (file.deletions || 0));
+              const exempt = /^README(_CN)?\.md$/.test(filename)
+                || /^docs\//.test(filename)
+                || filename === "package-lock.json";
+              return !exempt && changes > limits.singleFile;
+            });
+            if (largeFiles.length > 0) {
+              errors.push(`A single file changed too much: ${largeFiles.map((file) => `${file.filename} (${file.changes})`).join(", ")}. Keep PRs reviewable.`);
+            }
+
+            await core.summary
+              .addHeading("PR policy result")
+              .addRaw(`Files: ${files.length}/${limits.files}<br>`)
+              .addRaw(`Lines: +${totals.additions}/+${limits.additions}, -${totals.deletions}/-${limits.deletions}, total ${totals.changes}/${limits.total}<br>`)
+              .addRaw(errors.length ? `Errors:<br>${errors.map((error) => `- ${error}`).join("<br>")}` : "All PR policy checks passed.")
+              .write();
+
+            if (errors.length > 0) {
+              core.setFailed(errors.join("\n"));
+            }
