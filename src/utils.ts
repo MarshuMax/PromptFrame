@@ -1,8 +1,6 @@
 import type { Category, GalleryItem, GalleryStats } from "./types";
 
-export const CATEGORIES: Category[] = ["全部", "海报", "城市", "人物", "插画", "国风"];
-
-const CATEGORY_KEYWORDS: Record<Exclude<Category, "全部">, string[]> = {
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
   海报: ["海报", "poster", "宣传", "主视觉", "封面", "排版"],
   城市: ["城市", "杭州", "上海", "深圳", "北京", "广州", "重庆", "南京", "city", "urban"],
   人物: ["人物", "人像", "portrait", "少女", "女生", "女性", "idol", "woman", "girl", "男", "女"],
@@ -220,9 +218,9 @@ export function matchesCategory(item: GalleryItem, category: Category) {
   return getOriginalTags(item).includes(category);
 }
 
-export function getDisplayTitle(item: GalleryItem) {
-  const prompt = (item.prompt || "").replace(/\s+/g, " ").trim();
-  if (!prompt || prompt === "未提供") return item.title || `第${item.post_number}层作品`;
+function titleFromPrompt(promptRaw: string, limit = 15) {
+  const prompt = String(promptRaw || "").replace(/\s+/g, " ").trim();
+  if (!prompt || prompt === "未提供") return "";
 
   const cleaned = prompt
     .replace(/^生成一张/, "")
@@ -232,7 +230,30 @@ export function getDisplayTitle(item: GalleryItem) {
     .replace(/^一张/, "")
     .trim();
 
-  return truncateText(cleaned, 18);
+  const base = cleaned || prompt;
+  const hasCjk = /[\u3400-\u9FFF]/.test(base);
+
+  if (hasCjk) {
+    const compact = base.replace(/\s+/g, "");
+    if (compact.length <= limit) return compact;
+    return `${compact.slice(0, limit).trim()}...`;
+  }
+
+  const words = base.split(/\s+/g).filter(Boolean);
+  if (words.length <= limit) return base;
+  return `${words.slice(0, limit).join(" ").trim()}...`;
+}
+
+export function getDisplayTitle(item: GalleryItem) {
+  const title = String(item.title || "").replace(/\s+/g, " ").trim();
+  const looksAutoTitle = /^第\d+层-图\d+$/.test(title);
+  if (title && !looksAutoTitle) return title;
+
+  const fromPrompt = titleFromPrompt(item.prompt, 15);
+  if (fromPrompt) return fromPrompt;
+
+  if (title) return title;
+  return `第${item.post_number}层作品`;
 }
 
 export function getPromptPreview(item: GalleryItem, maxLength = 76) {

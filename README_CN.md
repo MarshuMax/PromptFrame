@@ -41,6 +41,13 @@ Express 服务器会同时托管 `dist/` 下的前端静态资源和 API。
 | `PORT` | `3000` | 服务器监听端口 |
 | `DATABASE_PATH` | `.data/prompt-frame.sqlite`（开发）/ `/data/prompt-frame.sqlite`（Docker） | SQLite 数据库文件路径 |
 | `IMPORT_TOKEN` | （空） | 自定义密钥字符串，作为 `POST /api/import` 的 Bearer Token。可设为任意值（如 `my-secret-123`），导入时将其填入 `Authorization` 请求头即可。留空则导入接口不做鉴权，允许所有请求。 |
+| `ADMIN_TOKEN` | `promptframe` | 管理后台密钥字符串，作为管理端 API 的 Bearer Token。用于 `/admin` 登录与管理端接口鉴权。 |
+
+## 管理后台
+
+- 访问路径：`/admin`（开发环境：`http://localhost:5173/admin`；生产环境：`http://localhost:3000/admin` 或 Docker 映射端口）
+- 默认管理密钥：`promptframe`（可通过环境变量 `ADMIN_TOKEN` 覆盖）
+- 登录后可批量管理作品、单独新增/修改/删除，并支持设置「推荐」与「置顶」
 
 ## 导入数据
 
@@ -64,6 +71,8 @@ Express 服务器会同时托管 `dist/` 下的前端静态资源和 API。
     "info": "GPT Image 2 生成",
     "prompt": "A futuristic city at night with neon lights...",
     "image_index": 1,
+    "recommended": true,
+    "pinned": false,
     "original_tags": ["城市", "夜"],
     "user_tags": []
   }
@@ -85,6 +94,8 @@ Express 服务器会同时托管 `dist/` 下的前端静态资源和 API。
       "info": "GPT Image 2 生成",
       "prompt": "A futuristic city at night with neon lights...",
       "image_index": 1,
+      "recommended": true,
+      "pinned": false,
       "original_tags": ["城市", "夜"],
       "user_tags": []
     }
@@ -107,6 +118,8 @@ Express 服务器会同时托管 `dist/` 下的前端静态资源和 API。
       "info": "GPT Image 2 生成",
       "prompt": "A futuristic city at night with neon lights...",
       "image_index": 1,
+      "recommended": true,
+      "pinned": false,
       "original_tags": ["城市", "夜"],
       "user_tags": []
     }
@@ -127,6 +140,8 @@ Express 服务器会同时托管 `dist/` 下的前端静态资源和 API。
 | `info` | 否 | string | 附加信息 |
 | `prompt` | 否 | string | AI 提示词文本（不填默认为"未提供"） |
 | `image_index` | 否 | number | 该楼层内的图片序号（默认为 1） |
+| `recommended` | 否 | boolean | 是否推荐（前台右上角显示推荐角标） |
+| `pinned` | 否 | boolean | 是否置顶（排序优先） |
 | `original_tags` | 否 | string[] | 原始标签（只读，最多 24 个） |
 | `user_tags` | 否 | string[] | 用户自定义标签（可编辑，最多 24 个） |
 
@@ -178,7 +193,20 @@ docker compose exec prompt-frame curl -X POST http://localhost:3000/api/import \
 |---|---|---|
 | `GET` | `/api/health` | 健康检查 |
 | `GET` | `/api/items` | 获取所有画廊条目 |
+| `GET` | `/api/categories` | 获取前台分类列表（不含“全部”，按后台排序） |
 | `POST` | `/api/import` | 导入条目（若设置了 `IMPORT_TOKEN` 则需 Bearer Token） |
+| `POST` | `/api/admin/auth` | 管理端鉴权（Bearer Token：`ADMIN_TOKEN`） |
+| `GET` | `/api/admin/items` | 管理端获取作品列表（Bearer Token：`ADMIN_TOKEN`） |
+| `POST` | `/api/admin/items` | 管理端新增作品（Bearer Token：`ADMIN_TOKEN`） |
+| `PUT` | `/api/admin/items/:id` | 管理端修改作品（Bearer Token：`ADMIN_TOKEN`） |
+| `DELETE` | `/api/admin/items/:id` | 管理端删除作品（Bearer Token：`ADMIN_TOKEN`） |
+| `PATCH` | `/api/admin/items/batch` | 管理端批量更新推荐/置顶（Bearer Token：`ADMIN_TOKEN`） |
+| `POST` | `/api/admin/items/batch-delete` | 管理端批量删除（Bearer Token：`ADMIN_TOKEN`） |
+| `GET` | `/api/admin/categories` | 管理端获取分类列表（Bearer Token：`ADMIN_TOKEN`） |
+| `POST` | `/api/admin/categories` | 管理端新增分类（Bearer Token：`ADMIN_TOKEN`） |
+| `PUT` | `/api/admin/categories/:id` | 管理端更新分类（Bearer Token：`ADMIN_TOKEN`） |
+| `DELETE` | `/api/admin/categories/:id` | 管理端删除分类（Bearer Token：`ADMIN_TOKEN`） |
+| `POST` | `/api/admin/categories/reorder` | 管理端更新分类排序（Bearer Token：`ADMIN_TOKEN`） |
 
 ## Docker 部署
 

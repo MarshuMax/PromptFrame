@@ -1,4 +1,5 @@
 export type GalleryItem = {
+  id?: number;
   post_number: number;
   username: string;
   post_url: string;
@@ -8,11 +9,15 @@ export type GalleryItem = {
   info: string;
   prompt: string;
   image_index: number;
+  recommended?: boolean;
+  pinned?: boolean;
   original_tags?: string[];
   user_tags?: string[];
+  created_at?: string;
+  updated_at?: string;
 };
 
-export type Category = "全部" | "海报" | "城市" | "人物" | "插画" | "国风";
+export type Category = "全部" | string;
 
 export type SortMode = "newest" | "oldest";
 

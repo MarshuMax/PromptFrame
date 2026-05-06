@@ -41,6 +41,13 @@ The Express server serves both the built frontend from `dist/` and the API.
 | `PORT` | `3000` | Server listen port |
 | `DATABASE_PATH` | `.data/prompt-frame.sqlite` (dev) / `/data/prompt-frame.sqlite` (Docker) | SQLite file path |
 | `IMPORT_TOKEN` | (empty) | A self-defined secret string used as Bearer token for `POST /api/import`. Set it to any value you choose (e.g. `my-secret-123`), then include it in the `Authorization` header when calling the import endpoint. If left empty, the import endpoint accepts all requests without authentication. |
+| `ADMIN_TOKEN` | `promptframe` | Admin secret used as Bearer token for admin APIs and `/admin` login. |
+
+## Admin Panel
+
+- Route: `/admin` (dev: `http://localhost:5173/admin`, prod: `http://localhost:3000/admin` or your Docker-mapped port)
+- Default admin token: `promptframe` (override via `ADMIN_TOKEN`)
+- Supports batch management and single-item create/update/delete, plus `recommended` and `pinned` flags
 
 ## Importing Data
 
@@ -64,6 +71,8 @@ The import endpoint accepts **any** of these JSON structures:
     "info": "GPT Image 2 生成",
     "prompt": "A futuristic city at night with neon lights...",
     "image_index": 1,
+    "recommended": true,
+    "pinned": false,
     "original_tags": ["城市", "夜"],
     "user_tags": []
   }
@@ -85,6 +94,8 @@ The import endpoint accepts **any** of these JSON structures:
       "info": "GPT Image 2 生成",
       "prompt": "A futuristic city at night with neon lights...",
       "image_index": 1,
+      "recommended": true,
+      "pinned": false,
       "original_tags": ["城市", "夜"],
       "user_tags": []
     }
@@ -107,6 +118,8 @@ The import endpoint accepts **any** of these JSON structures:
       "info": "GPT Image 2 生成",
       "prompt": "A futuristic city at night with neon lights...",
       "image_index": 1,
+      "recommended": true,
+      "pinned": false,
       "original_tags": ["城市", "夜"],
       "user_tags": []
     }
@@ -127,6 +140,8 @@ The import endpoint accepts **any** of these JSON structures:
 | `info` | no | string | Additional info |
 | `prompt` | no | string | The AI prompt text (defaults to "未提供") |
 | `image_index` | no | number | Image sequence within the post (defaults to 1) |
+| `recommended` | no | boolean | Whether the item is recommended (shows a badge in the top-right of the image card) |
+| `pinned` | no | boolean | Whether the item is pinned (sorted first) |
 | `original_tags` | no | string[] | Read-only tags (max 24) |
 | `user_tags` | no | string[] | Editable user tags (max 24) |
 
@@ -178,7 +193,20 @@ Click the **导出** button in the top bar to export the currently filtered resu
 |---|---|---|
 | `GET` | `/api/health` | Health check |
 | `GET` | `/api/items` | List all gallery items |
+| `GET` | `/api/categories` | List frontend categories (excludes "全部", ordered by admin sort) |
 | `POST` | `/api/import` | Import items (Bearer token required if `IMPORT_TOKEN` is set) |
+| `POST` | `/api/admin/auth` | Admin auth (Bearer token: `ADMIN_TOKEN`) |
+| `GET` | `/api/admin/items` | List items for admin (Bearer token: `ADMIN_TOKEN`) |
+| `POST` | `/api/admin/items` | Create item (Bearer token: `ADMIN_TOKEN`) |
+| `PUT` | `/api/admin/items/:id` | Update item (Bearer token: `ADMIN_TOKEN`) |
+| `DELETE` | `/api/admin/items/:id` | Delete item (Bearer token: `ADMIN_TOKEN`) |
+| `PATCH` | `/api/admin/items/batch` | Batch update recommended/pinned (Bearer token: `ADMIN_TOKEN`) |
+| `POST` | `/api/admin/items/batch-delete` | Batch delete (Bearer token: `ADMIN_TOKEN`) |
+| `GET` | `/api/admin/categories` | List categories (Bearer token: `ADMIN_TOKEN`) |
+| `POST` | `/api/admin/categories` | Create category (Bearer token: `ADMIN_TOKEN`) |
+| `PUT` | `/api/admin/categories/:id` | Update category (Bearer token: `ADMIN_TOKEN`) |
+| `DELETE` | `/api/admin/categories/:id` | Delete category (Bearer token: `ADMIN_TOKEN`) |
+| `POST` | `/api/admin/categories/reorder` | Reorder categories (Bearer token: `ADMIN_TOKEN`) |
 
 ## Docker Deployment
 
