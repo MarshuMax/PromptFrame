@@ -40,7 +40,10 @@ The Express server serves both the built frontend from `dist/` and the API.
 |---|---|---|
 | `PORT` | `3000` | Server listen port |
 | `DATABASE_PATH` | `.data/prompt-frame.sqlite` (dev) / `/data/prompt-frame.sqlite` (Docker) | SQLite file path |
-| `IMPORT_TOKEN` | (empty) | A self-defined secret string used as Bearer token for `POST /api/import`. Set it to any value you choose (e.g. `my-secret-123`), then include it in the `Authorization` header when calling the import endpoint. If left empty, the import endpoint accepts all requests without authentication. |
+| `IMPORT_TOKEN` | (empty) | A self-defined secret string used as Bearer token for `POST /api/import`. Set this in any shared or public deployment. If empty, imports are disabled by default. |
+| `ALLOW_UNAUTHENTICATED_IMPORT` | `false` | Set to `true` only for trusted local development if you want `POST /api/import` to accept requests without `IMPORT_TOKEN`. Do not enable this on public deployments. |
+| `IMPORT_BODY_LIMIT` | `10mb` | Maximum JSON request body size accepted by the Express JSON parser. |
+| `MAX_IMPORT_ITEMS` | `5000` | Maximum number of import entries processed from one request. |
 
 ## Importing Data
 
@@ -133,15 +136,15 @@ The import endpoint accepts **any** of these JSON structures:
 ### Import via API
 
 ```bash
-# Without token protection
-curl -X POST http://localhost:3000/api/import \
-  -H "Content-Type: application/json" \
-  -d @gallery-data.json
-
-# With token protection (set IMPORT_TOKEN in env)
+# With token protection (recommended; set IMPORT_TOKEN in env)
 curl -X POST http://localhost:3000/api/import \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-token-here" \
+  -d @gallery-data.json
+
+# Local development only, when ALLOW_UNAUTHENTICATED_IMPORT=true
+curl -X POST http://localhost:3000/api/import \
+  -H "Content-Type: application/json" \
   -d @gallery-data.json
 ```
 

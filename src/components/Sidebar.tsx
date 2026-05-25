@@ -1,4 +1,6 @@
 import { Bookmark, Clock3, Grid2X2, Image, Layers, Palette, Sparkles, Users } from "lucide-react";
+import type { Language, Translation } from "../i18n";
+import { categoryLabel } from "../i18n";
 import type { Category, GalleryStats } from "../types";
 import { CATEGORIES } from "../utils";
 
@@ -13,6 +15,7 @@ const categoryIcons = {
 
 export function Sidebar({
   category,
+  language,
   favoriteCount,
   onCategoryChange,
   onPickRecent,
@@ -20,8 +23,10 @@ export function Sidebar({
   recentSearches,
   showFavoritesOnly,
   stats,
+  t,
 }: {
   category: Category;
+  language: Language;
   favoriteCount: number;
   onCategoryChange: (category: Category) => void;
   onPickRecent: (query: string) => void;
@@ -29,6 +34,7 @@ export function Sidebar({
   recentSearches: string[];
   showFavoritesOnly: boolean;
   stats: GalleryStats;
+  t: Translation;
 }) {
   return (
     <aside className="sidebar">
@@ -42,7 +48,7 @@ export function Sidebar({
 
       <section className="sidebar-section">
         <div className="sidebar-title">Library</div>
-        <nav className="nav-list" aria-label="Category navigation">
+        <nav className="nav-list" aria-label={t.categoryNavigation}>
           {CATEGORIES.map((item) => {
             const Icon = categoryIcons[item];
             return (
@@ -53,25 +59,25 @@ export function Sidebar({
                 onClick={() => onCategoryChange(item)}
               >
                 <Icon size={17} />
-                <span>{item}</span>
+                <span>{categoryLabel(language, item)}</span>
               </button>
             );
           })}
           <button className={showFavoritesOnly ? "active" : ""} type="button" onClick={onToggleFavorites}>
             <Bookmark size={17} />
-            <span>Saved</span>
+            <span>{t.saved}</span>
             <em>{favoriteCount}</em>
           </button>
         </nav>
       </section>
 
-      <section className="sidebar-section stat-stack" aria-label="Library statistics">
+      <section className="sidebar-section stat-stack" aria-label={t.libraryStats}>
         <div className="sidebar-title">Overview</div>
         <div className="mini-stats">
-          <span><strong>{stats.images}</strong>Images</span>
-          <span><strong>{stats.users}</strong>Creators</span>
+          <span><strong>{stats.images}</strong>{t.images}</span>
+          <span><strong>{stats.users}</strong>{t.creators}</span>
           <span><strong>{stats.copyablePrompts}</strong>Prompt</span>
-          <span><strong>{stats.multiImagePosts}</strong>Series</span>
+          <span><strong>{stats.multiImagePosts}</strong>{t.series}</span>
         </div>
       </section>
 
@@ -86,7 +92,7 @@ export function Sidebar({
               </button>
             ))
           ) : (
-            <p>Saved searches will appear here.</p>
+            <p>{t.savedSearchesHint}</p>
           )}
         </div>
       </section>

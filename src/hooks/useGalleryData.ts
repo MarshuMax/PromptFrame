@@ -86,11 +86,14 @@ export function useGalleryData() {
     }
   }
 
-  async function importFile(file: File) {
+  async function importFile(file: File, token: string) {
     const parsed = JSON.parse(await file.text()) as unknown;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token.trim()) headers.Authorization = `Bearer ${token.trim()}`;
+
     const response = await fetch(API_IMPORT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(parsed),
     });
     const contentType = response.headers.get("content-type") || "";

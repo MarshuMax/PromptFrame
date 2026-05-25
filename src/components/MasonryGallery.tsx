@@ -1,4 +1,5 @@
 import { AlertCircle, Bookmark, BookmarkCheck, Copy, Image, Loader2, Search } from "lucide-react";
+import type { Translation } from "../i18n";
 import type { GalleryItem, ViewMode } from "../types";
 import { getAllTags, getDisplayTitle, getPromptPreview, itemKey } from "../utils";
 
@@ -11,6 +12,7 @@ export function MasonryGallery({
   onCopy,
   onOpen,
   onToggleFavorite,
+  t,
   userTagsByItem,
   viewMode,
 }: {
@@ -22,14 +24,15 @@ export function MasonryGallery({
   onCopy: (item: GalleryItem) => void;
   onOpen: (item: GalleryItem) => void;
   onToggleFavorite: (item: GalleryItem) => void;
+  t: Translation;
   userTagsByItem: Record<string, string[]>;
   viewMode: ViewMode;
 }) {
   const favoriteSet = new Set(favoriteKeys);
 
-  if (loading) return <GalleryState icon={Loader2} title="Building library view" text="Loading images and prompts from the local service." spin />;
-  if (error) return <GalleryState icon={AlertCircle} title="Failed to load data" text={error} />;
-  if (!items.length) return <GalleryState icon={Search} title="No matching results" text="Try another search, category, or favorite filter." />;
+  if (loading) return <GalleryState icon={Loader2} title={t.buildingLibrary} text={t.loadingImages} spin />;
+  if (error) return <GalleryState icon={AlertCircle} title={t.failedToLoadData} text={error} />;
+  if (!items.length) return <GalleryState icon={Search} title={t.noMatchingResults} text={t.tryAnotherSearch} />;
 
   return (
     <section className={`masonry-gallery ${viewMode === "list" ? "list" : ""}`} aria-label="Prompt image library">
@@ -45,6 +48,7 @@ export function MasonryGallery({
             onCopy={onCopy}
             onOpen={onOpen}
             onToggleFavorite={onToggleFavorite}
+            t={t}
             userTags={userTagsByItem[key] || item.user_tags || []}
             viewMode={viewMode}
           />
@@ -62,6 +66,7 @@ function AssetCard({
   onCopy,
   onOpen,
   onToggleFavorite,
+  t,
   userTags,
   viewMode,
 }: {
@@ -72,6 +77,7 @@ function AssetCard({
   onCopy: (item: GalleryItem) => void;
   onOpen: (item: GalleryItem) => void;
   onToggleFavorite: (item: GalleryItem) => void;
+  t: Translation;
   userTags: string[];
   viewMode: ViewMode;
 }) {
@@ -80,10 +86,10 @@ function AssetCard({
 
   return (
     <article className={`asset-card ${active ? "active" : ""} ${ratioClass}`} aria-current={active ? "true" : undefined}>
-      <button className="asset-thumb" type="button" onClick={() => onOpen(item)} aria-label="View in inspector">
+      <button className="asset-thumb" type="button" onClick={() => onOpen(item)} aria-label={t.viewInInspector}>
         <img src={item.thumb_url || item.image_url} alt={getDisplayTitle(item)} loading="lazy" />
         <span className="asset-index">#{item.post_number}</span>
-        {active ? <span className="asset-current-badge">Viewing</span> : null}
+        {active ? <span className="asset-current-badge">{t.viewing}</span> : null}
         {favorite ? <span className="asset-favorite"><BookmarkCheck size={15} /></span> : null}
       </button>
       <div className="asset-body">
@@ -96,9 +102,9 @@ function AssetCard({
           {(tags.length ? tags : ["Inspiration"]).slice(0, viewMode === "list" ? 6 : 4).map((tag) => <span key={tag}>{tag}</span>)}
         </div>
         <div className="asset-actions">
-          <button type="button" onClick={() => onOpen(item)}><Image size={16} />Details</button>
-          <button type="button" onClick={() => onCopy(item)} aria-label="Copy prompt"><Copy size={16} /></button>
-          <button className={favorite ? "active" : ""} type="button" onClick={() => onToggleFavorite(item)} aria-label={favorite ? "Remove favorite" : "Add favorite"}>
+          <button type="button" onClick={() => onOpen(item)}><Image size={16} />{t.details}</button>
+          <button type="button" onClick={() => onCopy(item)} aria-label={t.copyPrompt}><Copy size={16} /></button>
+          <button className={favorite ? "active" : ""} type="button" onClick={() => onToggleFavorite(item)} aria-label={favorite ? t.removeFavorite : t.addFavorite}>
             {favorite ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
           </button>
         </div>

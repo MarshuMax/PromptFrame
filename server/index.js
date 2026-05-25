@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +12,10 @@ const distDir = path.join(rootDir, "dist");
 
 const port = Number(process.env.PORT || 3000);
 const importToken = process.env.IMPORT_TOKEN || "";
+const allowUnauthenticatedImport = process.env.ALLOW_UNAUTHENTICATED_IMPORT === "true";
 const databasePath = process.env.DATABASE_PATH || path.join(rootDir, ".data", "prompt-frame.sqlite");
+const maxImportItems = Number(process.env.MAX_IMPORT_ITEMS || 5000);
+const importBodyLimit = process.env.IMPORT_BODY_LIMIT || "10mb";
 
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 
@@ -76,6 +80,42 @@ function normalizeTagList(value) {
   return Array.from(new Set(value.map((tag) => String(tag || "").trim()).filter(Boolean))).slice(0, 24);
 }
 
+function truncateText(value, maxLength) {
+  return String(value || "").trim().slice(0, maxLength);
+}
+
+function normalizeUrl(value) {
+  const url = truncateText(value, 2048);
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function requireImportAuth(req, res) {
+  if (!importToken) {
+    if (allowUnauthenticatedImport) return true;
+    res.status(503).json({ error: "Import is disabled until IMPORT_TOKEN is configured" });
+    return false;
+  }
+
+  const auth = req.headers.authorization || "";
+  const expected = `Bearer ${importToken}`;
+  const authBuffer = Buffer.from(auth);
+  const expectedBuffer = Buffer.from(expected);
+  const valid = authBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(authBuffer, expectedBuffer);
+
+  if (!valid) {
+    res.status(403).json({ error: "Invalid or missing import token" });
+    return false;
+  }
+
+  return true;
+}
+
 function normalizeImportedItems(value) {
   const source = Array.isArray(value)
     ? value
@@ -88,9 +128,9 @@ function normalizeImportedItems(value) {
       : [];
 
   const items = [];
-  let invalid = 0;
+  let invalid = Math.max(0, source.length - maxImportItems);
 
-  for (const entry of source) {
+  for (const entry of source.slice(0, maxImportItems)) {
     if (!entry || typeof entry !== "object") {
       invalid += 1;
       continue;
@@ -98,8 +138,10 @@ function normalizeImportedItems(value) {
 
     const postNumber = Number(entry.post_number);
     const imageIndex = Number(entry.image_index || 1);
-    const imageUrl = String(entry.image_url || "").trim();
-    const username = String(entry.username || "").trim();
+    const imageUrl = normalizeUrl(entry.image_url);
+    const thumbUrl = normalizeUrl(entry.thumb_url) || imageUrl;
+    const postUrl = normalizeUrl(entry.post_url);
+    const username = truncateText(entry.username, 120);
 
     if (!Number.isFinite(postNumber) || !imageUrl || !username) {
       invalid += 1;
@@ -109,12 +151,12 @@ function normalizeImportedItems(value) {
     items.push({
       post_number: postNumber,
       username,
-      post_url: String(entry.post_url || ""),
+      post_url: postUrl,
       image_url: imageUrl,
-      thumb_url: String(entry.thumb_url || imageUrl),
-      title: String(entry.title || `第${postNumber}层-图${Number.isFinite(imageIndex) ? imageIndex : 1}`),
-      info: String(entry.info || ""),
-      prompt: String(entry.prompt || "未提供"),
+      thumb_url: thumbUrl,
+      title: truncateText(entry.title || `Floor ${postNumber} - Image ${Number.isFinite(imageIndex) ? imageIndex : 1}`, 240),
+      info: truncateText(entry.info, 1000),
+      prompt: truncateText(entry.prompt || "Not provided", 20000),
       image_index: Number.isFinite(imageIndex) ? imageIndex : 1,
       original_tags: normalizeTagList(entry.original_tags),
       user_tags: normalizeTagList(entry.user_tags),
@@ -160,7 +202,7 @@ function mergeTagsForDuplicate(item) {
 
 const app = express();
 
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: importBodyLimit }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
@@ -172,12 +214,8 @@ app.get("/api/items", (_req, res) => {
 });
 
 app.post("/api/import", (req, res) => {
-  if (importToken) {
-    const auth = req.headers.authorization || "";
-    if (auth !== `Bearer ${importToken}`) {
-      return res.status(403).json({ error: "Invalid or missing import token" });
-    }
-  }
+  if (!requireImportAuth(req, res)) return;
+
   const result = normalizeImportedItems(req.body);
 
   let added = 0;
@@ -256,4 +294,7 @@ app.use((err, _req, res, _next) => {
 app.listen(port, () => {
   console.log(`PromptFrame server listening on http://0.0.0.0:${port}`);
   console.log(`SQLite database: ${databasePath}`);
+  if (!importToken && !allowUnauthenticatedImport) {
+    console.log("Import API disabled: set IMPORT_TOKEN to enable authenticated imports.");
+  }
 });

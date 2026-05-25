@@ -1,8 +1,11 @@
 import { X } from "lucide-react";
+import type { Language, Translation } from "../i18n";
+import { categoryLabel } from "../i18n";
 import type { Category, SortMode } from "../types";
 
 export function FilterChips({
   category,
+  language,
   onClearAll,
   onClearCategory,
   onClearFavorites,
@@ -10,8 +13,10 @@ export function FilterChips({
   searchTerm,
   showFavoritesOnly,
   sortMode,
+  t,
 }: {
   category: Category;
+  language: Language;
   onClearAll: () => void;
   onClearCategory: () => void;
   onClearFavorites: () => void;
@@ -19,16 +24,17 @@ export function FilterChips({
   searchTerm: string;
   showFavoritesOnly: boolean;
   sortMode: SortMode;
+  t: Translation;
 }) {
   const chips = [
-    searchTerm.trim() ? { label: `Search: ${searchTerm.trim()}`, onClear: onClearSearch } : null,
-    category !== "All" ? { label: `Category: ${category}`, onClear: onClearCategory } : null,
-    showFavoritesOnly ? { label: "Favorites only", onClear: onClearFavorites } : null,
-    { label: sortMode === "newest" ? "Newest first" : "Oldest first", onClear: undefined },
+    searchTerm.trim() ? { label: `${t.search}: ${searchTerm.trim()}`, onClear: onClearSearch } : null,
+    category !== "All" ? { label: `${t.category}: ${categoryLabel(language, category)}`, onClear: onClearCategory } : null,
+    showFavoritesOnly ? { label: t.favoritesOnly, onClear: onClearFavorites } : null,
+    { label: sortMode === "newest" ? t.newestFirst : t.oldFirst, onClear: undefined },
   ].filter(Boolean) as { label: string; onClear?: () => void }[];
 
   return (
-    <div className="filter-chips" aria-label="Active filters">
+    <div className="filter-chips" aria-label={t.activeFilters}>
       {chips.map((chip) => (
         <span key={chip.label}>
           {chip.label}
@@ -39,7 +45,7 @@ export function FilterChips({
           ) : null}
         </span>
       ))}
-      {chips.length > 1 ? <button type="button" onClick={onClearAll}>Clear filters</button> : null}
+      {chips.length > 1 ? <button type="button" onClick={onClearAll}>{t.clearFilters}</button> : null}
     </div>
   );
 }

@@ -11,6 +11,8 @@ import { useGalleryData } from "./hooks/useGalleryData";
 import { useGalleryFilters } from "./hooks/useGalleryFilters";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useStoredState } from "./hooks/useStoredState";
+import { LANGUAGE_KEY, categoryLabel, formatMessage, translations } from "./i18n";
+import type { Language } from "./i18n";
 import type { Category, GalleryItem, SortMode, ThemeMode, ViewMode } from "./types";
 import { CATEGORIES, getOriginalTags, itemKey } from "./utils";
 
@@ -33,6 +35,7 @@ export default function App() {
   const [favorites, setFavorites] = useStoredState<string[]>(FAVORITES_KEY, []);
   const [recentSearches, setRecentSearches] = useStoredState<string[]>(RECENT_SEARCHES_KEY, []);
   const [theme, setTheme] = useStoredState<ThemeMode>(THEME_KEY, "light");
+  const [language, setLanguage] = useStoredState<Language>(LANGUAGE_KEY, "en");
   const [userTagsByItem, setUserTagsByItem] = useStoredState<Record<string, string[]>>(USER_TAGS_KEY, {});
   const importInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +51,7 @@ export default function App() {
   });
 
   const activeFavorite = activeItem ? favorites.includes(itemKey(activeItem)) : false;
+  const t = translations[language];
 
   useKeyboardShortcuts({
     onEscape: () => {
@@ -80,11 +84,11 @@ export default function App() {
   function saveCurrentSearch() {
     const query = searchTerm.trim();
     if (!query) {
-      setToast("Enter a search query first");
+      setToast(t.enterSearchFirst);
       return;
     }
     setRecentSearches((current) => [query, ...current.filter((item) => item !== query)].slice(0, 8));
-    setToast("Search saved");
+    setToast(t.searchSaved);
   }
 
   function toggleFavorite(item: GalleryItem) {
@@ -96,7 +100,7 @@ export default function App() {
     const text = item.prompt || "Not provided";
     try {
       await navigator.clipboard.writeText(text);
-      setToast("Prompt copied");
+      setToast(t.promptCopied);
     } catch {
       const textarea = document.createElement("textarea");
       textarea.value = text;
@@ -106,9 +110,9 @@ export default function App() {
       textarea.select();
       try {
         document.execCommand("copy");
-        setToast("Prompt copied");
+        setToast(t.promptCopied);
       } catch {
-        setToast("Copy failed. Please copy manually");
+        setToast(t.copyFailed);
       } finally {
         document.body.removeChild(textarea);
       }
@@ -128,16 +132,23 @@ export default function App() {
     link.download = `prompt-frame-${category}-${filteredItems.length}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    setToast("Current results exported");
+    setToast(t.currentResultsExported);
   }
 
   async function importGalleryFile(file: File | null) {
     if (!file) return;
+    const token = window.prompt(t.enterImportToken);
+    if (token === null) {
+      setToast(t.cancelImport);
+      if (importInputRef.current) importInputRef.current.value = "";
+      return;
+    }
+
     try {
-      const result = await importFile(file);
-      setToast(`Imported ${Number(result.added || 0)} items, skipped ${Number(result.duplicated || 0) + Number(result.invalid || 0)}`);
+      const result = await importFile(file, token);
+      setToast(formatMessage(t.importedItems, { added: Number(result.added || 0), skipped: Number(result.duplicated || 0) + Number(result.invalid || 0) }));
     } catch (err) {
-      setToast(err instanceof SyntaxError ? "Import failed: invalid JSON" : "Import failed: server write error");
+      setToast(err instanceof SyntaxError ? t.importFailedInvalidJson : t.importFailedServer);
     } finally {
       if (importInputRef.current) importInputRef.current.value = "";
     }
@@ -145,7 +156,7 @@ export default function App() {
 
   function openRandomItem() {
     if (!filteredItems.length) {
-      setToast("No item is available for random pick");
+      setToast(t.noRandomItem);
       return;
     }
     setActiveItem(filteredItems[Math.floor(Math.random() * filteredItems.length)]);
@@ -202,6 +213,7 @@ export default function App() {
 
       <Sidebar
         category={category}
+        language={language}
         favoriteCount={favorites.length}
         onCategoryChange={pickCategory}
         onPickRecent={setSearchTerm}
@@ -209,6 +221,7 @@ export default function App() {
         recentSearches={recentSearches}
         showFavoritesOnly={showFavoritesOnly}
         stats={stats}
+        t={t}
       />
 
       <main className="main-stage">
@@ -219,6 +232,7 @@ export default function App() {
           onRandom={openRandomItem}
           onSaveSearch={saveCurrentSearch}
           onThemeToggle={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+          onLanguageToggle={() => setLanguage((current) => (current === "en" ? "zh" : "en"))}
           resultCount={filteredItems.length}
           searchInputRef={searchInputRef}
           searchTerm={searchTerm}
@@ -227,11 +241,14 @@ export default function App() {
           setViewMode={setViewMode}
           sortMode={sortMode}
           theme={theme}
+          language={language}
+          t={t}
           viewMode={viewMode}
         />
 
         <FilterChips
           category={category}
+          language={language}
           onClearAll={clearFilters}
           onClearCategory={() => setCategory("All")}
           onClearFavorites={() => setShowFavoritesOnly(false)}
@@ -239,9 +256,10 @@ export default function App() {
           searchTerm={searchTerm}
           showFavoritesOnly={showFavoritesOnly}
           sortMode={sortMode}
+          t={t}
         />
 
-        <section className="quick-tags" aria-label="Popular tags">
+        <section className="quick-tags" aria-label={t.popularTags}>
           {popularTags.map(([tag, count]) => (
             <button key={tag} type="button" onClick={() => pickTag(tag)}>
               {tag}<span>{count}</span>
@@ -259,6 +277,7 @@ export default function App() {
           onOpen={setActiveItem}
           onToggleFavorite={toggleFavorite}
           userTagsByItem={userTagsByItem}
+          t={t}
           viewMode={viewMode}
         />
       </main>
@@ -274,6 +293,7 @@ export default function App() {
         onRemoveUserTag={removeUserTag}
         onSelect={setActiveItem}
         onToggleFavorite={toggleFavorite}
+        t={t}
         userTags={activeItem ? userTagsByItem[itemKey(activeItem)] || activeItem.user_tags || [] : []}
         userTagsByItem={userTagsByItem}
       />
@@ -284,33 +304,34 @@ export default function App() {
         onFilters={() => setMobilePanel("filters")}
         onImport={() => importInputRef.current?.click()}
         onRandom={openRandomItem}
+        t={t}
       />
 
-      <MobileSheet open={mobilePanel === "filters"} title="Filters" onClose={() => setMobilePanel(null)}>
+      <MobileSheet open={mobilePanel === "filters"} title={t.filters} onClose={() => setMobilePanel(null)} t={t}>
         <div className="mobile-filter-list">
           {CATEGORIES.map((item) => (
             <button className={category === item && !showFavoritesOnly ? "active" : ""} key={item} type="button" onClick={() => pickCategory(item)}>
-              {item}
+              {categoryLabel(language, item)}
             </button>
           ))}
           <button className={showFavoritesOnly ? "active" : ""} type="button" onClick={() => setShowFavoritesOnly((current) => !current)}>
-            Favorites only
+            {t.favoritesOnly}
           </button>
         </div>
       </MobileSheet>
 
-      <MobileSheet open={mobilePanel === "favorites"} title="Favorites" onClose={() => setMobilePanel(null)}>
+      <MobileSheet open={mobilePanel === "favorites"} title={t.favorites} onClose={() => setMobilePanel(null)} t={t}>
         <div className="mobile-favorites">
           {favoriteItems.length ? favoriteItems.map((item) => (
             <button key={itemKey(item)} type="button" onClick={() => { setActiveItem(item); setMobilePanel(null); }}>
               <img src={item.thumb_url || item.image_url} alt="" />
               <span>#{item.post_number} · @{item.username}</span>
             </button>
-          )) : <p>No favorites yet.</p>}
+          )) : <p>{t.noFavorites}</p>}
         </div>
       </MobileSheet>
 
-      <Lightbox item={lightboxItem} items={filteredItems} onClose={() => setLightboxItem(null)} onCopy={copyPrompt} onSelect={setLightboxItem} />
+      <Lightbox item={lightboxItem} items={filteredItems} onClose={() => setLightboxItem(null)} onCopy={copyPrompt} onSelect={setLightboxItem} t={t} />
       <Toast message={toast} />
     </div>
   );
