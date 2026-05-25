@@ -12,7 +12,7 @@ export type GalleryItem = {
   user_tags?: string[];
 };
 
-export type Category = "全部" | "海报" | "城市" | "人物" | "插画" | "国风";
+export type Category = "All" | "Posters" | "Cities" | "People" | "Illustration" | "Guofeng";
 
 export type SortMode = "newest" | "oldest";
 

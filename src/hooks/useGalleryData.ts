@@ -1,0 +1,130 @@
+import { useEffect, useState } from "react";
+import type { GalleryItem } from "../types";
+
+const API_ITEMS_URL = `${import.meta.env.BASE_URL}api/items`;
+const API_IMPORT_URL = `${import.meta.env.BASE_URL}api/import`;
+
+function normalizeTagList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map((tag) => String(tag || "").trim()).filter(Boolean))).slice(0, 24);
+}
+
+function normalizeImportedItems(value: unknown): { items: GalleryItem[]; invalid: number } {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "object" && value
+      ? Array.isArray((value as { items?: unknown }).items)
+        ? (value as { items: unknown[] }).items
+        : Array.isArray((value as { data?: unknown }).data)
+          ? (value as { data: unknown[] }).data
+          : []
+      : [];
+
+  const items: GalleryItem[] = [];
+  let invalid = 0;
+
+  for (const entry of source) {
+    if (!entry || typeof entry !== "object") {
+      invalid += 1;
+      continue;
+    }
+
+    const record = entry as Partial<GalleryItem>;
+    const postNumber = Number(record.post_number);
+    const imageIndex = Number(record.image_index || 1);
+    const imageUrl = String(record.image_url || "").trim();
+    const username = String(record.username || "").trim();
+
+    if (!Number.isFinite(postNumber) || !imageUrl || !username) {
+      invalid += 1;
+      continue;
+    }
+
+    items.push({
+      post_number: postNumber,
+      username,
+      post_url: String(record.post_url || ""),
+      image_url: imageUrl,
+      thumb_url: String(record.thumb_url || imageUrl),
+      title: String(record.title || `Floor ${postNumber} - Image ${Number.isFinite(imageIndex) ? imageIndex : 1}`),
+      info: String(record.info || ""),
+      prompt: String(record.prompt || "Not provided"),
+      image_index: Number.isFinite(imageIndex) ? imageIndex : 1,
+      original_tags: normalizeTagList(record.original_tags),
+      user_tags: normalizeTagList(record.user_tags),
+    });
+  }
+
+  return { items, invalid };
+}
+
+export async function requestGalleryItems() {
+  const response = await fetch(API_ITEMS_URL);
+  if (response.status === 404) return [];
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return [];
+
+  return normalizeImportedItems((await response.json()) as unknown).items;
+}
+
+export function useGalleryData() {
+  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function reload() {
+    setLoading(true);
+    setError("");
+    try {
+      setItems(await requestGalleryItems());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function importFile(file: File) {
+    const parsed = JSON.parse(await file.text()) as unknown;
+    const response = await fetch(API_IMPORT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed),
+    });
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json") ? ((await response.json()) as unknown) : null;
+
+    if (!response.ok) {
+      const message = payload && typeof payload === "object" && "error" in payload ? String(payload.error) : `HTTP ${response.status}`;
+      throw new Error(message);
+    }
+
+    setItems(await requestGalleryItems());
+    setError("");
+    return payload as Partial<{ added: number; duplicated: number; invalid: number }>;
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await requestGalleryItems();
+        if (!cancelled) setItems(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { error, importFile, items, loading, reload, setItems };
+}

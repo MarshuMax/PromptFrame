@@ -1,13 +1,22 @@
 import type { Category, GalleryItem, GalleryStats } from "./types";
 
-export const CATEGORIES: Category[] = ["全部", "海报", "城市", "人物", "插画", "国风"];
+export const CATEGORIES: Category[] = ["All", "Posters", "Cities", "People", "Illustration", "Guofeng"];
 
-const CATEGORY_KEYWORDS: Record<Exclude<Category, "全部">, string[]> = {
-  海报: ["海报", "poster", "宣传", "主视觉", "封面", "排版"],
-  城市: ["城市", "杭州", "上海", "深圳", "北京", "广州", "重庆", "南京", "city", "urban"],
-  人物: ["人物", "人像", "portrait", "少女", "女生", "女性", "idol", "woman", "girl", "男", "女"],
-  插画: ["插画", "illustration", "anime", "动漫", "贴纸", "sticker", "卡通", "吉祥物", "chibi"],
-  国风: ["国风", "古风", "中国风", "汉服", "水墨", "山水", "东方", "古代", "Chinese"],
+const CATEGORY_KEYWORDS: Record<Exclude<Category, "All">, string[]> = {
+  Posters: ["\u6d77\u62a5", "poster", "\u5ba3\u4f20", "\u4e3b\u89c6\u89c9", "\u5c01\u9762", "\u6392\u7248"],
+  Cities: ["\u57ce\u5e02", "\u676d\u5dde", "\u4e0a\u6d77", "\u6df1\u5733", "\u5317\u4eac", "\u5e7f\u5dde", "\u91cd\u5e86", "\u5357\u4eac", "city", "urban"],
+  People: ["\u4eba\u7269", "\u4eba\u50cf", "portrait", "\u5c11\u5973", "\u5973\u751f", "\u5973\u6027", "idol", "woman", "girl", "\u7537", "\u5973"],
+  Illustration: ["\u63d2\u753b", "illustration", "anime", "\u52a8\u6f2b", "\u8d34\u7eb8", "sticker", "\u5361\u901a", "\u5409\u7965\u7269", "chibi"],
+  Guofeng: ["\u56fd\u98ce", "\u53e4\u98ce", "\u4e2d\u56fd\u98ce", "\u6c49\u670d", "\u6c34\u58a8", "\u5c71\u6c34", "\u4e1c\u65b9", "\u53e4\u4ee3", "Chinese"],
+};
+
+const CATEGORY_ALIASES: Record<Category, string[]> = {
+  All: [],
+  Posters: ["Posters", "Poster", "\u6d77\u62a5"],
+  Cities: ["Cities", "City", "\u57ce\u5e02"],
+  People: ["People", "Portrait", "\u4eba\u7269", "\u4eba\u50cf"],
+  Illustration: ["Illustration", "Illustrations", "\u63d2\u753b"],
+  Guofeng: ["Guofeng", "Chinese", "\u56fd\u98ce", "\u53e4\u98ce", "\u4e2d\u56fd\u98ce"],
 };
 
 export function itemKey(item: GalleryItem) {
@@ -57,8 +66,8 @@ export function getOriginalTags(item: GalleryItem): string[] {
     .filter(([, keywords]) => keywords.some((keyword) => source.includes(keyword.toLowerCase())))
     .map(([category]) => category);
 
-  if (item.prompt && item.prompt !== "未提供") tags.push("Prompt");
-  if (item.image_index > 1) tags.push("组图");
+  if (item.prompt && item.prompt !== "\u672a\u63d0\u4f9b") tags.push("Prompt");
+  if (item.image_index > 1) tags.push("Series");
 
   return Array.from(new Set(tags)).slice(0, 4);
 }
@@ -73,7 +82,7 @@ export type RelatedGalleryItem = {
   reasons: string[];
 };
 
-const GENERIC_TAGS = new Set(["Prompt", "组图", "灵感"]);
+const GENERIC_TAGS = new Set(["Prompt", "Series", "Inspiration", "\u7ec4\u56fe", "\u7075\u611f"]);
 const STOP_WORDS = new Set([
   "the",
   "and",
@@ -86,11 +95,11 @@ const STOP_WORDS = new Set([
   "prompt",
   "image",
   "style",
-  "生成",
-  "一张",
-  "请参考",
-  "上传",
-  "照片",
+  "\u751f\u6210",
+  "\u4e00\u5f20",
+  "\u8bf7\u53c2\u8003",
+  "\u4e0a\u4f20",
+  "\u7167\u7247",
 ]);
 
 function getItemUserTags(item: GalleryItem, userTagsByItem: Record<string, string[]>) {
@@ -156,7 +165,7 @@ export function rankRelatedItems(
 
       if (candidate.post_number === target.post_number) {
         score += 100;
-        reasons.push("同楼层");
+        reasons.push("Same floor");
       }
 
       const candidateOriginalTags = getOriginalTags(candidate).filter((tag) => !GENERIC_TAGS.has(tag));
@@ -166,29 +175,29 @@ export function rankRelatedItems(
 
       if (sharedOriginalTags.length) {
         score += sharedOriginalTags.length * 32;
-        reasons.push(`标签：${sharedOriginalTags.slice(0, 2).join("、")}`);
+        reasons.push(`Tags: ${sharedOriginalTags.slice(0, 2).join(", ")}`);
       }
 
       if (sharedUserTags.length) {
         score += sharedUserTags.length * 38;
-        reasons.push(`我的标签：${sharedUserTags.slice(0, 2).join("、")}`);
+        reasons.push(`My tags: ${sharedUserTags.slice(0, 2).join(", ")}`);
       }
 
       if (normalizeText(candidate.username) === normalizeText(target.username)) {
         score += 28;
-        reasons.push("同作者");
+        reasons.push("Same creator");
       }
 
       const sharedKeywords = intersectTokens(targetKeywords, getKeywordTokens(candidate));
       if (sharedKeywords.length) {
         score += Math.min(30, sharedKeywords.length * 4);
-        reasons.push("关键词相似");
+        reasons.push("Similar keywords");
       }
 
       const postDistance = Math.abs(candidate.post_number - target.post_number);
       if (postDistance > 0 && postDistance <= 5) {
         score += 10;
-        reasons.push("相邻楼层");
+        reasons.push("Nearby floor");
       } else if (postDistance > 0 && postDistance <= 20) {
         score += 5;
       }
@@ -216,27 +225,28 @@ export function rankRelatedItems(
 }
 
 export function matchesCategory(item: GalleryItem, category: Category) {
-  if (category === "全部") return true;
-  return getOriginalTags(item).includes(category);
+  if (category === "All") return true;
+  const aliases = new Set(CATEGORY_ALIASES[category].map((value) => normalizeText(value)));
+  return getOriginalTags(item).some((tag) => aliases.has(normalizeText(tag)));
 }
 
 export function getDisplayTitle(item: GalleryItem) {
   const prompt = (item.prompt || "").replace(/\s+/g, " ").trim();
-  if (!prompt || prompt === "未提供") return item.title || `第${item.post_number}层作品`;
+  if (!prompt || prompt === "\u672a\u63d0\u4f9b") return item.title || `Floor ${item.post_number} work`;
 
   const cleaned = prompt
-    .replace(/^生成一张/, "")
-    .replace(/^请生成/, "")
+    .replace(/^\u751f\u6210\u4e00\u5f20/, "")
+    .replace(/^\u8bf7\u751f\u6210/, "")
     .replace(/^Create an? /i, "")
     .replace(/^A /i, "")
-    .replace(/^一张/, "")
+    .replace(/^\u4e00\u5f20/, "")
     .trim();
 
   return truncateText(cleaned, 18);
 }
 
 export function getPromptPreview(item: GalleryItem, maxLength = 76) {
-  const prompt = (item.prompt || "未提供").replace(/\s+/g, " ").trim();
+  const prompt = (item.prompt || "Not provided").replace(/\s+/g, " ").trim();
   return truncateText(prompt, maxLength);
 }
 
@@ -253,7 +263,7 @@ export function computeStats(items: GalleryItem[]): GalleryStats {
     images: items.length,
     posts: posts.size,
     users: new Set(items.map((item) => item.username)).size,
-    copyablePrompts: items.filter((item) => item.prompt && item.prompt !== "未提供").length,
+    copyablePrompts: items.filter((item) => item.prompt && item.prompt !== "\u672a\u63d0\u4f9b").length,
     multiImagePosts: Array.from(posts.values()).filter((count) => count > 1).length,
   };
 }
@@ -261,7 +271,7 @@ export function computeStats(items: GalleryItem[]): GalleryStats {
 export function topTags(items: GalleryItem[], limit = 8) {
   const counts = new Map<string, number>();
   for (const item of items) {
-    for (const tag of getOriginalTags(item).filter((value) => value !== "Prompt" && value !== "组图")) {
+    for (const tag of getOriginalTags(item).filter((value) => value !== "Prompt" && value !== "\u7ec4\u56fe")) {
       counts.set(tag, (counts.get(tag) || 0) + 1);
     }
   }
