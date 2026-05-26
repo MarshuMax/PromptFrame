@@ -1,4 +1,4 @@
-import { Download, Grid3X3, Import, Languages, LayoutList, Moon, Search, Shuffle, SlidersHorizontal, SunMedium } from "lucide-react";
+import { FileDown, Grid3X3, Languages, LayoutList, Moon, Search, Shuffle, SlidersHorizontal, SunMedium, Upload } from "lucide-react";
 import type { RefObject } from "react";
 import type { Language, Translation } from "../i18n";
 import type { SortMode, ThemeMode, ViewMode } from "../types";
@@ -80,8 +80,8 @@ export function CommandBar({
           </button>
         </div>
         <button type="button" onClick={onRandom}><Shuffle size={17} />{t.random}</button>
-        <button type="button" onClick={onImport}><Import size={17} />{t.import}</button>
-        <button type="button" onClick={onExport}><Download size={17} />{t.export}</button>
+        <button type="button" onClick={onImport}><Upload size={17} />{t.import}</button>
+        <button type="button" onClick={onExport}><FileDown size={17} />{t.export}</button>
         <button className="language-button" type="button" onClick={onLanguageToggle} aria-label="Toggle language">
           <Languages size={17} />{language === "en" ? "ZH" : "EN"}
         </button>
