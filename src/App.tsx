@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BackToTop } from "./components/BackToTop";
 import { CommandBar } from "./components/CommandBar";
 import { FilterChips } from "./components/FilterChips";
 import { Inspector } from "./components/Inspector";
@@ -332,6 +333,7 @@ export default function App() {
       </MobileSheet>
 
       <Lightbox item={lightboxItem} items={filteredItems} onClose={() => setLightboxItem(null)} onCopy={copyPrompt} onSelect={setLightboxItem} t={t} />
+      <BackToTop t={t} />
       <Toast message={toast} />
     </div>
   );

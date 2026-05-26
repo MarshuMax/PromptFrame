@@ -380,6 +380,30 @@ img { display: block; max-width: 100%; }
 .toast { position: fixed; left: 50%; bottom: 24px; z-index: 100; max-width: min(540px, calc(100% - 32px)); padding: 12px 18px; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; background: #111827; color: #fff; font-weight: 900; opacity: 0; pointer-events: none; transform: translate(-50%, 18px); transition: opacity 180ms ease, transform 180ms ease; box-shadow: var(--shadow); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+.back-to-top {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 75;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--accent-2);
+  color: var(--panel);
+  box-shadow: var(--shadow);
+  font-weight: 900;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(14px);
+  transition: opacity 180ms ease, transform 180ms ease, border-color 180ms ease;
+}
+.back-to-top.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.back-to-top:hover { border-color: var(--strong-line); transform: translateY(-2px); }
+
 @media (max-width: 1360px) {
   .app-frame { grid-template-columns: 230px minmax(0, 1fr) 340px; }
   .masonry-gallery { column-count: 3; }
@@ -417,6 +441,8 @@ img { display: block; max-width: 100%; }
   .mobile-dock { position: fixed; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); left: 10px; z-index: 70; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 7px; border: 1px solid var(--line); border-radius: 22px; background: var(--panel-glass); box-shadow: var(--shadow); backdrop-filter: blur(18px); }
   .mobile-dock button { display: inline-flex; min-width: 0; min-height: 50px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 0; border-radius: 16px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 900; }
   .mobile-dock button:hover { background: var(--panel-2); color: var(--text); }
+  .back-to-top { right: 18px; bottom: calc(92px + env(safe-area-inset-bottom)); width: 48px; min-height: 48px; padding: 0; justify-content: center; }
+  .back-to-top span { display: none; }
   .lightbox { height: calc(100vh - 20px); border-radius: 22px; }
   .lightbox-header { align-items: flex-start; }
   .lightbox-header nav a, .lightbox-header nav button:first-child { display: none; }
