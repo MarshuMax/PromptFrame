@@ -406,8 +406,8 @@ img { display: block; max-width: 100%; }
   .mobile-only { display: inline-flex !important; }
   .icon-button { width: 40px; min-height: 40px; }
   .quick-tags { margin: 0 -2px; }
-  .masonry-gallery { column-count: 2; column-gap: 10px; }
-  .asset-card { margin-bottom: 10px; border-radius: 17px; }
+  .masonry-gallery { display: grid; grid-template-columns: repeat(2, 1fr); column-count: auto; column-gap: 10px; }
+  .asset-card { display: block; width: auto; margin-bottom: 10px; border-radius: 17px; }
   .asset-body { padding: 11px; }
   .asset-heading { display: block; }
   .asset-heading h2 { font-size: 14px; }
@@ -423,7 +423,7 @@ img { display: block; max-width: 100%; }
 }
 
 @media (max-width: 520px) {
-  .masonry-gallery { column-count: 1; }
+  .masonry-gallery { grid-template-columns: 1fr; }
   .filter-chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
   .filter-chips span, .filter-chips > button { flex: 0 0 auto; }
   .inspector { right: 8px; bottom: 8px; left: 8px; height: calc(100vh - 16px); border-radius: 24px; }
