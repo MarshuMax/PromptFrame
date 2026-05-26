@@ -27,6 +27,17 @@ export function normalizeText(value: unknown) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+const MISSING_PROMPT_VALUES = new Set(["not provided", "\u672a\u63d0\u4f9b"]);
+
+export function normalizePrompt(value: unknown) {
+  const prompt = String(value ?? "").replace(/\s+/g, " ").trim();
+  return MISSING_PROMPT_VALUES.has(prompt.toLowerCase()) ? "" : prompt;
+}
+
+export function hasPrompt(item: Pick<GalleryItem, "prompt">) {
+  return normalizePrompt(item.prompt).length > 0;
+}
+
 function normalizeTags(value: unknown) {
   if (!Array.isArray(value)) return [];
   return Array.from(
@@ -46,7 +57,7 @@ export function itemSearchText(item: GalleryItem, userTags: string[] = []) {
       item.username,
       item.title,
       item.info,
-      item.prompt,
+      normalizePrompt(item.prompt),
       getOriginalTags(item).join(" "),
       userTags.join(" "),
     ].join(" "),
@@ -61,7 +72,7 @@ export function getOriginalTags(item: GalleryItem): string[] {
   const importedTags = normalizeTags(item.original_tags);
   if (importedTags.length) return importedTags;
 
-  const source = normalizeText([item.title, item.info, item.prompt, item.username].join(" "));
+  const source = normalizeText([item.title, item.info, normalizePrompt(item.prompt), item.username].join(" "));
   const tags = Object.entries(CATEGORY_KEYWORDS)
     .filter(([, keywords]) => keywords.some((keyword) => source.includes(keyword.toLowerCase())))
     .map(([category]) => category);
@@ -129,7 +140,7 @@ function toKeywordTokens(value: string) {
 }
 
 function getKeywordTokens(item: GalleryItem) {
-  return toKeywordTokens([item.title, item.info, item.prompt].join(" "));
+  return toKeywordTokens([item.title, item.info, normalizePrompt(item.prompt)].join(" "));
 }
 
 function intersectValues(a: string[], b: string[]) {
@@ -246,7 +257,7 @@ export function getDisplayTitle(item: GalleryItem) {
 }
 
 export function getPromptPreview(item: GalleryItem, maxLength = 76) {
-  const prompt = (item.prompt || "Not provided").replace(/\s+/g, " ").trim();
+  const prompt = normalizePrompt(item.prompt);
   return truncateText(prompt, maxLength);
 }
 

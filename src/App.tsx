@@ -15,12 +15,44 @@ import { useStoredState } from "./hooks/useStoredState";
 import { LANGUAGE_KEY, categoryLabel, formatMessage, translations } from "./i18n";
 import type { Language } from "./i18n";
 import type { Category, GalleryItem, SortMode, ThemeMode, ViewMode } from "./types";
-import { CATEGORIES, getOriginalTags, itemKey } from "./utils";
+import { CATEGORIES, getOriginalTags, hasPrompt, itemKey, normalizePrompt } from "./utils";
 
 const FAVORITES_KEY = "linux-do-gallery:favorites";
 const RECENT_SEARCHES_KEY = "linux-do-gallery:recent-searches";
 const THEME_KEY = "linux-do-gallery:theme";
 const USER_TAGS_KEY = "linux-do-gallery:user-tags";
+
+function normalizeStoredStringList(value: unknown, maxItems: number) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map((item) => String(item || "").trim()).filter(Boolean))).slice(0, maxItems);
+}
+
+function validateFavorites(value: unknown) {
+  return normalizeStoredStringList(value, 5000);
+}
+
+function validateRecentSearches(value: unknown) {
+  return normalizeStoredStringList(value, 8);
+}
+
+function validateTheme(value: unknown): ThemeMode {
+  return value === "dark" || value === "light" ? value : "light";
+}
+
+function validateLanguage(value: unknown): Language {
+  return value === "zh" || value === "en" ? value : "en";
+}
+
+function validateUserTagsByItem(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string[]>>((result, [key, tags]) => {
+    const cleanKey = key.trim();
+    const cleanTags = normalizeStoredStringList(tags, 24);
+    if (cleanKey && cleanTags.length) result[cleanKey] = cleanTags;
+    return result;
+  }, {});
+}
 
 export default function App() {
   const { error, importFile, items, loading } = useGalleryData();
@@ -33,11 +65,11 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<"filters" | "favorites" | null>(null);
-  const [favorites, setFavorites] = useStoredState<string[]>(FAVORITES_KEY, []);
-  const [recentSearches, setRecentSearches] = useStoredState<string[]>(RECENT_SEARCHES_KEY, []);
-  const [theme, setTheme] = useStoredState<ThemeMode>(THEME_KEY, "light");
-  const [language, setLanguage] = useStoredState<Language>(LANGUAGE_KEY, "en");
-  const [userTagsByItem, setUserTagsByItem] = useStoredState<Record<string, string[]>>(USER_TAGS_KEY, {});
+  const [favorites, setFavorites] = useStoredState<string[]>(FAVORITES_KEY, [], validateFavorites);
+  const [recentSearches, setRecentSearches] = useStoredState<string[]>(RECENT_SEARCHES_KEY, [], validateRecentSearches);
+  const [theme, setTheme] = useStoredState<ThemeMode>(THEME_KEY, "light", validateTheme);
+  const [language, setLanguage] = useStoredState<Language>(LANGUAGE_KEY, "en", validateLanguage);
+  const [userTagsByItem, setUserTagsByItem] = useStoredState<Record<string, string[]>>(USER_TAGS_KEY, {}, validateUserTagsByItem);
   const importInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,7 +130,12 @@ export default function App() {
   }
 
   async function copyPrompt(item: GalleryItem) {
-    const text = item.prompt || "Not provided";
+    if (!hasPrompt(item)) {
+      setToast(t.noPromptToCopy);
+      return;
+    }
+
+    const text = normalizePrompt(item.prompt);
     try {
       await navigator.clipboard.writeText(text);
       setToast(t.promptCopied);

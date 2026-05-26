@@ -4,6 +4,8 @@ import type { GalleryItem } from "../types";
 const API_ITEMS_URL = `${import.meta.env.BASE_URL}api/items`;
 const API_IMPORT_URL = `${import.meta.env.BASE_URL}api/import`;
 
+type ImportResult = { added: number; duplicated: number; invalid: number; total?: number };
+
 function normalizeTagList(value: unknown) {
   if (!Array.isArray(value)) return [];
   return Array.from(new Set(value.map((tag) => String(tag || "").trim()).filter(Boolean))).slice(0, 24);
@@ -48,7 +50,7 @@ function normalizeImportedItems(value: unknown): { items: GalleryItem[]; invalid
       thumb_url: String(record.thumb_url || imageUrl),
       title: String(record.title || `Floor ${postNumber} - Image ${Number.isFinite(imageIndex) ? imageIndex : 1}`),
       info: String(record.info || ""),
-      prompt: String(record.prompt || "Not provided"),
+      prompt: String(record.prompt ?? "").trim(),
       image_index: Number.isFinite(imageIndex) ? imageIndex : 1,
       original_tags: normalizeTagList(record.original_tags),
       user_tags: normalizeTagList(record.user_tags),
@@ -56,6 +58,22 @@ function normalizeImportedItems(value: unknown): { items: GalleryItem[]; invalid
   }
 
   return { items, invalid };
+}
+
+function readNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function normalizeImportResult(value: unknown): ImportResult {
+  if (!value || typeof value !== "object") return { added: 0, duplicated: 0, invalid: 0 };
+  const record = value as Partial<Record<keyof ImportResult, unknown>>;
+  return {
+    added: readNumber(record.added),
+    duplicated: readNumber(record.duplicated),
+    invalid: readNumber(record.invalid),
+    total: record.total === undefined ? undefined : readNumber(record.total),
+  };
 }
 
 export async function requestGalleryItems() {
@@ -106,7 +124,7 @@ export function useGalleryData() {
 
     setItems(await requestGalleryItems());
     setError("");
-    return payload as Partial<{ added: number; duplicated: number; invalid: number }>;
+    return normalizeImportResult(payload);
   }
 
   useEffect(() => {
